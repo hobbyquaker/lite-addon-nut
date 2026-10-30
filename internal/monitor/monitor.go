@@ -118,6 +118,10 @@ type Options struct {
 	Dialer func(ctx context.Context, o nut.Options) (*nut.Conn, error)
 	// OnChange is called after every poll and every event (the page's stream).
 	OnChange func()
+	// Terminating answers true once the daemon was told to stop (SIGTERM). A shutdown order
+	// that fails while the daemon is being stopped is the shutdown itself: systemd stops the
+	// addon's unit before systemctl start poweroff.target answers.
+	Terminating func() bool
 }
 
 type upsRun struct {
@@ -513,12 +517,19 @@ func (m *Monitor) execute(ctx context.Context, action string, dryRun, test bool,
 		m.o.Events.Add(Event{At: now, Kind: KindDryRun, Action: action, Reasons: reasons, Test: test})
 	} else {
 		m.o.Log("shutting the system down: %s (%s)", action, strings.Join(reasons, ", "))
-		if err := m.o.Executor.Shutdown(ctx, action); err != nil {
+		// the order is logged before the call: the system stops this daemon while the call is
+		// still answering, and the log is what the page shows after the system comes back
+		m.o.Events.Add(Event{At: now, Kind: KindShutdown, Action: action, Reasons: reasons, Test: test})
+		// the call outlives a SIGTERM: the answer may still arrive while the unit is stopped
+		err := m.o.Executor.Shutdown(context.WithoutCancel(ctx), action)
+		if err != nil && m.o.Terminating != nil && m.o.Terminating() {
+			m.o.Log("the system is going down (the daemon was stopped while the order was answered: %v)", err)
+			err = nil
+		}
+		if err != nil {
 			rec.Error = err.Error()
 			m.o.Log("shutdown failed: %v", err)
 			m.o.Events.Add(Event{At: now, Kind: KindError, Action: action, Reasons: reasons, Message: err.Error(), Test: test})
-		} else {
-			m.o.Events.Add(Event{At: now, Kind: KindShutdown, Action: action, Reasons: reasons, Test: test})
 		}
 	}
 	m.mu.Lock()

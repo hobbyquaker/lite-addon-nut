@@ -16,12 +16,17 @@ type fakeExec struct {
 	calls   []string
 	fail    error
 	failFor int
+	// onCall runs inside Shutdown (a termination arriving while the order is answered)
+	onCall func()
 }
 
 func (f *fakeExec) Shutdown(_ context.Context, action string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls = append(f.calls, action)
+	if f.onCall != nil {
+		f.onCall()
+	}
 	if f.fail != nil && (f.failFor == 0 || len(f.calls) <= f.failFor) {
 		return f.fail
 	}
@@ -423,5 +428,25 @@ func TestLogFile(t *testing.T) {
 	l2.Clear()
 	if len(NewLog(path, 3).List()) != 0 {
 		t.Error("clear")
+	}
+}
+
+// The system stops the daemon while systemctl start poweroff.target is still answering: the cut
+// request is the shutdown, not an error, and the order was logged before the call.
+func TestTerminatedDuringOrderIsTheShutdown(t *testing.T) {
+	w := setup(t, settings(0), config.DefaultRules)
+	terminating := false
+	w.m.o.Terminating = func() bool { return terminating }
+	w.exec.fail = errors.New(`Post "http://127.0.0.1/api/system/v1/services/poweroff.target/start": terminated signal received`)
+	w.exec.onCall = func() { terminating = true }
+	w.poll()
+	w.ups.Set("eaton", "ups.status", "OB LB")
+	w.clk.advance(time.Second)
+	s := w.poll()
+	if w.exec.count() != 1 || s.Shutdown == nil || s.Shutdown.Error != "" || !s.Issued {
+		t.Fatalf("%+v", s.Shutdown)
+	}
+	if k := w.kinds(); k[len(k)-1] != KindShutdown {
+		t.Errorf("events %v", k)
 	}
 }

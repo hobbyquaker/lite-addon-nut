@@ -87,7 +87,7 @@ func run(addonDir, confDir, id string, port int, base, basePath, www, tokenFile 
 		logf("WARNING: the token lacks system:write (%v): the system cannot be shut down from here", right.Scopes)
 	}
 
-	mon := monitor.New(monitor.Options{Store: store, Executor: sys, Events: events, Log: logf})
+	mon := monitor.New(monitor.Options{Store: store, Executor: sys, Events: events, Log: logf, Terminating: func() bool { return ctx.Err() != nil }})
 	store.OnChange = mon.Kick
 	go mon.Run(ctx)
 
