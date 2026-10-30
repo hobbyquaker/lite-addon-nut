@@ -1,0 +1,12 @@
+/dist/
+/build/
+/ui/node_modules/
+/ui/dist/
+/ui/test-results/
+/ui/playwright-report/
+# the build fills app/ and bin/; the manifest's icons, the 503 page and the proxy rule are
+# tracked in the tree, where the catalogue reads the icons beside the manifest at the release tag
+/addon/nut/app/
+/addon/nut/bin/
+/addon/nut/versions
+/addon/nut/var/
