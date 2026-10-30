@@ -1,0 +1,13 @@
+ups.mfr: Test
+ups.model: Dummy 1000
+ups.serial: T-000001
+ups.status: OL CHRG
+battery.charge: 100
+battery.charge.low: 20
+battery.runtime: 1800
+battery.runtime.low: 120
+battery.voltage: 27.1
+input.voltage: 230.0
+output.voltage: 230.0
+ups.load: 25
+ups.temperature: 31.5
