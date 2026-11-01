@@ -77,11 +77,6 @@
     <div class="nut-form">
         <label class="nut-check"><input type="checkbox" bind:checked={form.enabled} data-testid="watch-enabled" /> {t('Watch the UPS and shut the system down when a rule fires')}</label>
         <p class="nut-help">{t('Off, the page still shows the UPS; nothing is ever shut down.')}</p>
-        <label for="action">{t('Action')}</label>
-        <select class="hmm-select" id="action" bind:value={form.action} data-testid="action">
-            <option value="poweroff">{t('Power off')}</option>
-            <option value="reboot">{t('Reboot')}</option>
-        </select>
         <label for="grace">{t('Grace period (s)')}</label>
         <input class="hmm-input nut-narrow" id="grace" type="number" min="0" max="3600" bind:value={form.grace_s} data-testid="grace" />
         <p class="nut-help">{t('The countdown between the rule and the shutdown. It is cancelled when mains returns in time. A forced shutdown (FSD) ignores it.')}</p>
@@ -99,9 +94,9 @@
         <button class="hmm-button nut-primary" disabled={!dirty || busy} onclick={save} data-testid="settings-save">{t('Save')}</button>
         <span class="nut-spacer"></span>
         <button class="hmm-button" disabled={busy} onclick={() => test(false)} data-testid="test-dry">{t('Test (dry run)')}</button>
-        <button class="hmm-button nut-danger" disabled={busy} onclick={() => (confirmReal = true)} data-testid="test-real">{config.settings.action === 'reboot' ? t('Reboot now…') : t('Shut down now…')}</button>
+        <button class="hmm-button nut-danger" disabled={busy} onclick={() => (confirmReal = true)} data-testid="test-real">{t('Shut down now…')}</button>
     </div>
-    <p class="nut-help">{t("The addon shuts the system down through the system's own API (systemctl start poweroff.target). Its token needs the scope system:write, which the manifest declares; the Addons page shows it.")}</p>
+    <p class="nut-help">{t("The addon powers the system off through the system's own API. Its token needs the scope power:halt, which the manifest declares and which allows nothing else, not even a reboot; the Addons page shows it.")}</p>
 </section>
 
 <section class="nut-section" data-testid="servers">
@@ -175,9 +170,9 @@
 />
 <ConfirmDialog
     open={confirmReal}
-    title={config.settings.action === 'reboot' ? t('Reboot the system now?') : t('Shut the system down now?')}
-    message={config.settings.action === 'reboot' ? t('This tests the whole path for real: the system reboots now.') : t('This tests the whole path for real: the system powers off and does not come back until the power is cycled.')}
-    confirmLabel={config.settings.action === 'reboot' ? t('Reboot') : t('Shut down')}
+    title={t('Shut the system down now?')}
+    message={t('This tests the whole path for real: the system powers off and does not come back until the power is cycled.')}
+    confirmLabel={t('Shut down')}
     danger
     testId="confirm-shutdown"
     onconfirm={() => test(true)}

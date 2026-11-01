@@ -106,7 +106,7 @@ test('the dry-run test button writes an event; the real one calls the system', a
     await page.getByTestId('confirm-shutdown-yes').click();
     await expect(page.getByText('Shutdown ordered.')).toBeVisible();
     const calls = await (await page.request.get(`${FAKE}/dev/calls`)).json();
-    expect(calls).toEqual(['poweroff.target start']);
+    expect(calls).toEqual(['halt']);
     await expect(page.getByTestId('issued')).toBeVisible();
 });
 

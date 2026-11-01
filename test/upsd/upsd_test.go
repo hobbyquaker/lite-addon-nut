@@ -25,10 +25,10 @@ type recorder struct {
 	calls []string
 }
 
-func (r *recorder) Shutdown(_ context.Context, action string) error {
+func (r *recorder) Shutdown(_ context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.calls = append(r.calls, action)
+	r.calls = append(r.calls, config.ActionPoweroff)
 	return nil
 }
 
@@ -189,7 +189,7 @@ func TestAgainstRealUpsd(t *testing.T) {
 		if _, err := store.PutUPS(config.UPS{ID: "ups1", Server: "srv1", Name: "dummy", Label: "Dummy", Enabled: true, Rules: rules}); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := store.PutSettings(config.Settings{Enabled: true, Action: config.ActionPoweroff, GraceS: 3, PollS: 1, DeadS: 5}); err != nil {
+		if _, err := store.PutSettings(config.Settings{Enabled: true, GraceS: 3, PollS: 1, DeadS: 5}); err != nil {
 			t.Fatal(err)
 		}
 		rec := &recorder{}

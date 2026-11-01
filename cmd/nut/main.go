@@ -84,7 +84,12 @@ func run(addonDir, confDir, id string, port int, base, basePath, www, tokenFile 
 	if right.OK {
 		logf("the system accepts the token (%v)", right.Scopes)
 	} else {
-		logf("WARNING: the token lacks system:write (%v): the system cannot be shut down from here", right.Scopes)
+		logf("WARNING: the token lacks power:halt (%v): the system cannot be shut down from here", right.Scopes)
+	}
+
+	if store.RebootRemoved() {
+		logf("WARNING: the configured action was a reboot, which this version no longer has: the shutdown now powers the system off")
+		events.Add(monitor.Event{At: time.Now(), Kind: monitor.KindRebootRemoved})
 	}
 
 	mon := monitor.New(monitor.Options{Store: store, Executor: sys, Events: events, Log: logf, Terminating: func() bool { return ctx.Err() != nil }})
@@ -111,7 +116,7 @@ func run(addonDir, confDir, id string, port int, base, basePath, www, tokenFile 
 		_ = srv.Shutdown(sctx)
 	}()
 	c := store.Get()
-	logf("%s: serving %s on %s; %d servers, %d UPS, action %s%s", version, basePath, l.Addr(), len(c.Servers), len(c.UPS), c.Settings.Action, map[bool]string{true: " (dry run)", false: ""}[c.Settings.DryRun])
+	logf("%s: serving %s on %s; %d servers, %d UPS%s", version, basePath, l.Addr(), len(c.Servers), len(c.UPS), map[bool]string{true: " (dry run)", false: ""}[c.Settings.DryRun])
 	if err := srv.Serve(l); err != nil && err != http.ErrServerClosed {
 		return err
 	}

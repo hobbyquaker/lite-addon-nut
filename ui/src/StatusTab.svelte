@@ -42,14 +42,14 @@
             <span class="nut-pill" class:ok={config.settings.enabled && !config.settings.dry_run} class:warn={config.settings.enabled && config.settings.dry_run} class:bad={!config.settings.enabled} data-testid="watch-state">{config.settings.enabled ? (config.settings.dry_run ? t('dry run') : t('active')) : t('inactive')}</span>
         </span>
         <span>{t('Action')}</span>
-        <span>{t('action.' + config.settings.action)} · {t('Grace period')}: {config.settings.grace_s > 0 ? t('{n} s', {n: config.settings.grace_s}) : t('none')}</span>
+        <span>{t('action.poweroff')} · {t('Grace period')}: {config.settings.grace_s > 0 ? t('{n} s', {n: config.settings.grace_s}) : t('none')}</span>
         <span>{t('Shutdown right')}</span>
         <span class="nut-row">
             <span class="nut-pill" class:ok={right.checked && right.ok} class:bad={right.checked && !right.ok} data-testid="right">{right.checked ? (right.ok ? t('granted') : t('missing')) : t('not checked yet')}</span>
             <button class="hmm-button" onclick={recheck} disabled={rechecking}>{t('Check again')}</button>
         </span>
         {#if right.checked && !right.ok}
-            <p class="nut-warning nut-span">{right.error ? right.error : t("The addon's token holds {scopes}. It needs system:write to start the shutdown; reinstall the addon or check its policy on the Addons page.", {scopes: right.scopes.join(', ') || '–'})}</p>
+            <p class="nut-warning nut-span">{right.error ? right.error : t("The addon's token holds {scopes}. It needs power:halt to start the shutdown; reinstall the addon or check its policy on the Addons page.", {scopes: right.scopes.join(', ') || '–'})}</p>
         {/if}
         {#if st?.shutdown}
             <span>{t('Last shutdown')}</span>

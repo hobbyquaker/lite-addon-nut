@@ -24,9 +24,8 @@ func TestManifest(t *testing.T) {
 	if len(m.Runtime.Capabilities) != 0 || len(m.Runtime.Ports) != 0 {
 		t.Errorf("the addon needs no capability and no port: %+v", m.Runtime)
 	}
-	// the one scope: system:write, for the shutdown through the service control (an addon
-	// token never gets power)
-	if len(m.Runtime.APIScopes) != 1 || m.Runtime.APIScopes[0] != "system:write" {
+	// the one scope: power:halt, for the shutdown and nothing else (an addon token never gets power)
+	if len(m.Runtime.APIScopes) != 1 || m.Runtime.APIScopes[0] != "power:halt" {
 		t.Errorf("scopes %v", m.Runtime.APIScopes)
 	}
 	for _, s := range m.Runtime.APIScopes {
@@ -37,7 +36,7 @@ func TestManifest(t *testing.T) {
 	if m.Description["de"] == "" || m.Description["en"] == "" || m.Runtime.Note["de"] == "" || m.Runtime.Note["en"] == "" {
 		t.Error("the description and the note in both languages")
 	}
-	if !strings.Contains(m.Runtime.Note["en"], "system:write") {
+	if !strings.Contains(m.Runtime.Note["en"], "power:halt") {
 		t.Error("the note explains the scope")
 	}
 }

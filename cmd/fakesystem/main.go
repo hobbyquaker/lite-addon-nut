@@ -26,7 +26,7 @@ func main() {
 	f.AddUPS("eaton", "Eaton Ellipse ECO 650 (fake)", nut.DemoVars("OL CHRG", 100, 1860))
 	f.AddUPS("apc", "APC Back-UPS 700 (fake)", nut.DemoVars("OL", 97, 1200))
 	f.AddUser("monuser", "secret")
-	s := fakesys.New(*token, "system:write", "system:read", "led")
+	s := fakesys.New(*token, "power:halt", "system:read", "led")
 	s.UPSD = f
 	log.Printf("fake system on %s, fake upsd on %s", *addr, f.Addr())
 	srv := &http.Server{Addr: *addr, Handler: s.Handler(), ReadHeaderTimeout: 5 * time.Second}

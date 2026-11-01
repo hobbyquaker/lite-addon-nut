@@ -18,6 +18,8 @@ const (
 	KindShutdown  = "shutdown"  // the shutdown was ordered
 	KindDryRun    = "dry_run"   // the shutdown would have been ordered
 	KindError     = "error"     // the shutdown failed
+	// KindRebootRemoved: the configuration's action was a reboot, which 0.2 no longer has
+	KindRebootRemoved = "reboot_removed"
 )
 
 // Event is one line of the log the page shows. The page builds the sentence from the kind and

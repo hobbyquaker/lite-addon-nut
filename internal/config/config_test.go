@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c := s.Get(); !c.Settings.Enabled || c.Settings.Action != "poweroff" || c.Settings.GraceS != 30 || len(c.Servers) != 0 {
+	if c := s.Get(); !c.Settings.Enabled || c.Settings.GraceS != 30 || len(c.Servers) != 0 {
 		t.Errorf("defaults: %+v", c.Settings)
 	}
 	changes := 0
@@ -63,10 +64,7 @@ func TestStore(t *testing.T) {
 	if _, err := s.PutUPS(UPS{Server: "srv1", Name: "x", Rules: Rules{ChargeBelow: 101}}); err == nil {
 		t.Error("a charge above 100 must be refused")
 	}
-	if _, err := s.PutSettings(Settings{Enabled: true, Action: "halt", GraceS: 1, PollS: 5, DeadS: 60}); err == nil {
-		t.Error("action halt must be refused")
-	}
-	if _, err := s.PutSettings(Settings{Enabled: true, Action: "reboot", DryRun: true, GraceS: 10, PollS: 2, DeadS: 30}); err != nil {
+	if _, err := s.PutSettings(Settings{Enabled: true, DryRun: true, GraceS: 10, PollS: 2, DeadS: 30}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,7 +78,7 @@ func TestStore(t *testing.T) {
 		t.Fatal(err)
 	}
 	c2 := s2.Get()
-	if len(c2.Servers) != 1 || c2.Servers[0].Password != "secret" || len(c2.UPS) != 1 || c2.Settings.Action != "reboot" || !c2.Settings.DryRun {
+	if len(c2.Servers) != 1 || c2.Servers[0].Password != "secret" || len(c2.UPS) != 1 || !c2.Settings.DryRun {
 		t.Errorf("re-read: %+v", c2)
 	}
 	if s2.Public().Servers[0].Password != "" {
@@ -97,5 +95,38 @@ func TestStore(t *testing.T) {
 	}
 	if changes < 5 {
 		t.Errorf("OnChange called %d times", changes)
+	}
+}
+
+// A file of 0.1.x: its action goes for good, and only a reboot is reported, once.
+func TestMigrateAction(t *testing.T) {
+	for _, tc := range []struct {
+		action string
+		report bool
+	}{{"reboot", true}, {"poweroff", false}} {
+		dir := t.TempDir()
+		path := filepath.Join(dir, "nut.json")
+		old := `{"servers":[],"ups":[],"settings":{"enabled":true,"action":"` + tc.action + `","dry_run":true,"grace_s":45,"poll_s":7,"dead_s":61}}`
+		if err := os.WriteFile(path, []byte(old), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		s, err := Open(dir)
+		if err != nil {
+			t.Fatal(tc.action, err)
+		}
+		if s.RebootRemoved() != tc.report {
+			t.Errorf("%s: reported %v", tc.action, s.RebootRemoved())
+		}
+		if c := s.Get().Settings; !c.DryRun || c.GraceS != 45 || c.PollS != 7 || c.DeadS != 61 {
+			t.Errorf("%s: the other settings: %+v", tc.action, c)
+		}
+		b, _ := os.ReadFile(path)
+		if strings.Contains(string(b), "action") {
+			t.Errorf("%s: the key stayed: %s", tc.action, b)
+		}
+		s2, err := Open(dir)
+		if err != nil || s2.RebootRemoved() {
+			t.Errorf("%s: the second start: %v %v", tc.action, s2.RebootRemoved(), err)
+		}
 	}
 }

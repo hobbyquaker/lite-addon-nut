@@ -6,7 +6,7 @@
     "de": "Ein Client für Network UPS Tools (NUT): verbindet sich mit einem oder mehreren upsd-Servern (NAS, Proxmox, ein Raspberry Pi am USB-Kabel der USV; TCP 3493, optional STARTTLS), zeigt den Zustand der USV (Status, Ladung, Restlaufzeit, Last, Eingangsspannung) und fährt das System sauber herunter, wenn eine Regel auslöst: Batterie schwach, erzwungenes Herunterfahren, Ladung oder Restlaufzeit unter einer Schwelle, zu lange auf Batterie, Verbindung verloren. Mit Karenzzeit, Abbruch bei Netzrückkehr, Probelauf und Ereignisprotokoll. Nur ausgehende Verbindungen.",
     "en": "A client for Network UPS Tools (NUT): connects to one or more upsd servers (a NAS, Proxmox, a Raspberry Pi at the UPS's USB cable; TCP 3493, optional STARTTLS), shows the UPS's state (status, charge, runtime, load, input voltage) and shuts the system down cleanly when a rule fires: low battery, forced shutdown, charge or runtime below a threshold, too long on battery, communication lost. With a grace period, a cancel when mains returns, a dry run and an event log. Outgoing connections only."
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "homepage": "https://github.com/hobbyquaker/lite-addon-nut",
   "licence": "MIT",
   "changelog": "https://github.com/hobbyquaker/lite-addon-nut/blob/main/CHANGELOG.md",
@@ -15,6 +15,7 @@
     "asset": "nut-{arch}-{version}.tar.gz"
   },
   "requires": {
+    "lite": "1.1.0-beta.1",
     "architectures": ["aarch64", "x86_64", "armv7l"]
   },
   "ui": {
@@ -28,10 +29,10 @@
     "needs": [],
     "capabilities": [],
     "ports": [],
-    "api_scopes": ["system:write"],
+    "api_scopes": ["power:halt"],
     "note": {
-      "de": "Öffnet keinen Port und braucht kein Zusatzrecht; verbindet sich nur mit den upsd-Servern, die Sie eintragen. Das Recht system:write braucht es für genau eine Sache: das Herunterfahren über die System-API (systemctl start poweroff.target bzw. reboot.target), weil ein Addon das Recht power nicht erhalten kann. Es ändert sonst nichts am System.",
-      "en": "Opens no port and needs no privilege; connects only to the upsd servers you enter. The scope system:write is for one thing: shutting the system down through the system's API (systemctl start poweroff.target or reboot.target), because an addon cannot be granted the power scope. It changes nothing else on the system."
+      "de": "Öffnet keinen Port und braucht kein Zusatzrecht; verbindet sich nur mit den upsd-Servern, die Sie eintragen. Das Recht power:halt braucht es für genau eine Sache: das Herunterfahren über die System-API; mehr erlaubt es nicht, auch keinen Neustart.",
+      "en": "Opens no port and needs no privilege; connects only to the upsd servers you enter. The scope power:halt is for one thing: powering the system off through the system's API; it allows nothing else, not even a reboot."
     }
   }
 }

@@ -47,5 +47,6 @@ describe('texts', () => {
         expect(eventText({at: '', kind: 'shutdown', action: 'reboot', test: true}, t)).toBe('Test: action.reboot ordered');
         expect(eventText({at: '', kind: 'cancelled', message: 'cancelled by the user'}, t)).toBe('Countdown cancelled by the user');
         expect(eventText({at: '', kind: 'error', action: 'poweroff', message: '403'}, t)).toBe('action.poweroff failed: 403');
+        expect(eventText({at: '', kind: 'reboot_removed'}, t)).toContain('powers the system off');
     });
 });

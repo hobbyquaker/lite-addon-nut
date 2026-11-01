@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0] - 2026-11-01
+
+**Needs openccu-lite 1.1.0-beta.1 or later.**
+
+- **A narrower right:** the addon's token holds `power:halt` instead of `system:write`, which allows powering the system off and nothing else. The shutdown is `POST /api/system/v1/halt`.
+- **No reboot action any more:** that scope does not allow one. A configuration with the action set to reboot is migrated at the first start: the other settings stay, the shutdown now powers the system off, and the event log and the addon's log say so once. A Raspberry Pi then starts again only when its power is cycled.
+
 ## [0.1.0] - 2026-10-30
 
 The first release, for openccu-lite.

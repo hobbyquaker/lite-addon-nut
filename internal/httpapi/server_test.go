@@ -29,7 +29,7 @@ type world struct {
 	base string
 }
 
-// setup wires the whole addon end to end: the fake system (the token holds system:write), a fake
+// setup wires the whole addon end to end: the fake system (the token holds power:halt), a fake
 // upsd, the store, the monitor with the real System executor, and the API on a test server.
 func setup(t *testing.T, scopes ...string) *world {
 	t.Helper()
@@ -41,7 +41,7 @@ func setup(t *testing.T, scopes ...string) *world {
 	ups.AddUPS("eaton", "Eaton", nut.DemoVars("OL CHRG", 100, 1800))
 	ups.AddUser("mon", "pw")
 	if scopes == nil {
-		scopes = []string{"system:write", "system:read"}
+		scopes = []string{"power:halt", "system:read"}
 	}
 	sys := fakesys.New("tok", scopes...)
 	sys.UPSD = ups
@@ -146,7 +146,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("unknown ups: %d", st)
 	}
 	// the settings: a dry run with no grace
-	st, m, _ = w.call("PUT", "api/v1/settings", map[string]any{"enabled": true, "action": "poweroff", "dry_run": true, "grace_s": 0, "poll_s": 1, "dead_s": 30}, true)
+	st, m, _ = w.call("PUT", "api/v1/settings", map[string]any{"enabled": true, "dry_run": true, "grace_s": 0, "poll_s": 1, "dead_s": 30}, true)
 	if st != 200 || m["settings"].(map[string]any)["dry_run"] != true {
 		t.Fatalf("settings: %d %v", st, m)
 	}
@@ -180,12 +180,12 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("events: %+v", events)
 	}
 
-	// the Test button for real: the system gets systemctl start poweroff.target
+	// the Test button for real: the system gets POST /halt
 	st, m, _ = w.call("POST", "api/v1/shutdown/test", map[string]any{"real": true}, true)
 	if st != 200 || m["error"] != nil {
 		t.Fatalf("test real: %d %v", st, m)
 	}
-	if calls := w.sys.CallList(); len(calls) != 1 || calls[0] != "poweroff.target start" {
+	if calls := w.sys.CallList(); len(calls) != 1 || calls[0] != "halt" {
 		t.Fatalf("calls %v", calls)
 	}
 
@@ -213,7 +213,7 @@ func TestEndToEnd(t *testing.T) {
 }
 
 func TestRealShutdownRefused(t *testing.T) {
-	// the token lacks system:write: the right says so and the system refuses the call
+	// the token lacks power:halt: the right says so and the system refuses the call
 	w := setup(t, "system:read")
 	_, m, _ := w.call("GET", "api/v1/config", nil, false)
 	if r := m["right"].(map[string]any); r["ok"] != false || r["checked"] != true {
@@ -238,7 +238,7 @@ func TestCountdownAndCancel(t *testing.T) {
 	w.ups.Set("eaton", "ups.status", "OB LB")
 	_, m, _ := w.call("POST", "api/v1/poll", nil, true)
 	cd := m["state"].(map[string]any)["countdown"]
-	if cd == nil || cd.(map[string]any)["action"] != "reboot" {
+	if cd == nil || cd.(map[string]any)["action"] != "poweroff" {
 		t.Fatalf("countdown: %v", m["state"])
 	}
 	if st, m, _ := w.call("POST", "api/v1/shutdown/cancel", nil, true); st != 200 || m["cancelled"] != true {

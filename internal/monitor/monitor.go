@@ -18,8 +18,8 @@ import (
 
 // Executor performs the shutdown. The real one calls the system's API; a test records.
 type Executor interface {
-	// Shutdown runs the action (config.ActionPoweroff or ActionReboot).
-	Shutdown(ctx context.Context, action string) error
+	// Shutdown powers the system off.
+	Shutdown(ctx context.Context) error
 }
 
 // The rules a reason names.
@@ -120,7 +120,7 @@ type Options struct {
 	OnChange func()
 	// Terminating answers true once the daemon was told to stop (SIGTERM). A shutdown order
 	// that fails while the daemon is being stopped is the shutdown itself: systemd stops the
-	// addon's unit before systemctl start poweroff.target answers.
+	// addon's unit before POST /halt answers.
 	Terminating func() bool
 }
 
@@ -153,7 +153,6 @@ type countdown struct {
 	since, until time.Time
 	reasons      []string
 	dryRun       bool
-	action       string
 	fsd          bool
 }
 
@@ -483,9 +482,9 @@ func (m *Monitor) decide(ctx context.Context, c config.Config, now time.Time) {
 			if fsd {
 				grace = 0
 			}
-			m.cd = &countdown{since: now, until: now.Add(grace), reasons: reasons, dryRun: st.DryRun, action: st.Action, fsd: fsd}
-			m.o.Events.Add(Event{At: now, Kind: KindCountdown, Reasons: reasons, GraceS: int(grace.Seconds()), DryRun: st.DryRun, Action: st.Action})
-			m.o.Log("countdown: %s in %s (%s)", st.Action, grace, strings.Join(reasons, ", "))
+			m.cd = &countdown{since: now, until: now.Add(grace), reasons: reasons, dryRun: st.DryRun, fsd: fsd}
+			m.o.Events.Add(Event{At: now, Kind: KindCountdown, Reasons: reasons, GraceS: int(grace.Seconds()), DryRun: st.DryRun, Action: config.ActionPoweroff})
+			m.o.Log("countdown: %s in %s (%s)", config.ActionPoweroff, grace, strings.Join(reasons, ", "))
 		}
 	case !trigger && m.cd != nil:
 		m.o.Events.Add(Event{At: now, Kind: KindCancelled, Reasons: m.cd.reasons, Message: "condition cleared"})
@@ -506,11 +505,12 @@ func (m *Monitor) decide(ctx context.Context, c config.Config, now time.Time) {
 	cd := *m.cd
 	m.cd = nil
 	m.mu.Unlock()
-	m.execute(ctx, cd.action, cd.dryRun, false, cd.reasons, now)
+	m.execute(ctx, cd.dryRun, false, cd.reasons, now)
 }
 
 // execute runs the shutdown (or the dry run) and records it.
-func (m *Monitor) execute(ctx context.Context, action string, dryRun, test bool, reasons []string, now time.Time) *Shutdown {
+func (m *Monitor) execute(ctx context.Context, dryRun, test bool, reasons []string, now time.Time) *Shutdown {
+	const action = config.ActionPoweroff
 	rec := &Shutdown{At: now.UnixMilli(), Action: action, DryRun: dryRun, Test: test, Reasons: reasons}
 	if dryRun {
 		m.o.Log("dry run: would %s the system (%s)", action, strings.Join(reasons, ", "))
@@ -521,7 +521,7 @@ func (m *Monitor) execute(ctx context.Context, action string, dryRun, test bool,
 		// still answering, and the log is what the page shows after the system comes back
 		m.o.Events.Add(Event{At: now, Kind: KindShutdown, Action: action, Reasons: reasons, Test: test})
 		// the call outlives a SIGTERM: the answer may still arrive while the unit is stopped
-		err := m.o.Executor.Shutdown(context.WithoutCancel(ctx), action)
+		err := m.o.Executor.Shutdown(context.WithoutCancel(ctx))
 		if err != nil && m.o.Terminating != nil && m.o.Terminating() {
 			m.o.Log("the system is going down (the daemon was stopped while the order was answered: %v)", err)
 			err = nil
@@ -559,8 +559,7 @@ func (m *Monitor) execute(ctx context.Context, action string, dryRun, test bool,
 
 // Test runs the shutdown now, as a dry run or for real (the page's Test button).
 func (m *Monitor) Test(ctx context.Context, real bool) *Shutdown {
-	c := m.o.Store.Get()
-	return m.execute(ctx, c.Settings.Action, !real, true, []string{"test"}, m.o.Now())
+	return m.execute(ctx, !real, true, []string{"test"}, m.o.Now())
 }
 
 // Cancel ends a running countdown; the UPS that caused it stay suppressed until mains returns.
@@ -585,7 +584,7 @@ func (m *Monitor) State() State {
 	c := m.o.Store.Get()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	s := State{Enabled: c.Settings.Enabled, DryRun: c.Settings.DryRun, Action: c.Settings.Action, RequireAll: c.Settings.RequireAll, GraceS: c.Settings.GraceS, UPS: []UPSState{}, Issued: m.issued, Polls: m.polls, Ready: m.ready}
+	s := State{Enabled: c.Settings.Enabled, DryRun: c.Settings.DryRun, Action: config.ActionPoweroff, RequireAll: c.Settings.RequireAll, GraceS: c.Settings.GraceS, UPS: []UPSState{}, Issued: m.issued, Polls: m.polls, Ready: m.ready}
 	if !m.lastPoll.IsZero() {
 		ms := m.lastPoll.UnixMilli()
 		s.LastPoll = &ms
@@ -605,7 +604,7 @@ func (m *Monitor) State() State {
 		}
 	}
 	if m.cd != nil {
-		s.Countdown = &Countdown{Since: m.cd.since.UnixMilli(), Until: m.cd.until.UnixMilli(), Reasons: m.cd.reasons, DryRun: m.cd.dryRun, Action: m.cd.action}
+		s.Countdown = &Countdown{Since: m.cd.since.UnixMilli(), Until: m.cd.until.UnixMilli(), Reasons: m.cd.reasons, DryRun: m.cd.dryRun, Action: config.ActionPoweroff}
 	}
 	s.Shutdown = m.last
 	return s

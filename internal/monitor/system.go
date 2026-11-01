@@ -12,11 +12,8 @@ import (
 	"time"
 )
 
-// System shuts the system down through openccu-lite's API. An addon token never holds the
-// `power` scope (the system strips it), so the addon cannot call POST /reboot or POST /halt; what
-// it can hold is `system:write`, whose service control starts a systemd unit by name:
-// POST /api/system/v1/services/poweroff.target/start (or reboot.target). That is the narrowest
-// right that works today.
+// System powers the system off through openccu-lite's API: POST /api/system/v1/halt, for which
+// the addon's token holds `power:halt` (openccu-lite 1.1.0-beta.1), that route and nothing else.
 type System struct {
 	// Base is the system's URL, http://127.0.0.1 by default.
 	Base string
@@ -25,18 +22,11 @@ type System struct {
 	Log  func(format string, args ...any)
 }
 
-// Units per action.
-var units = map[string]string{"poweroff": "poweroff.target", "reboot": "reboot.target"}
-
-// Shutdown starts the target.
-func (s *System) Shutdown(ctx context.Context, action string) error {
-	unit, ok := units[action]
-	if !ok {
-		return fmt.Errorf("unknown action %q", action)
-	}
+// Shutdown orders the power-off.
+func (s *System) Shutdown(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "POST", s.base()+"/api/system/v1/services/"+unit+"/start", bytes.NewReader([]byte("{}")))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.base()+"/api/system/v1/halt", bytes.NewReader([]byte(`{"confirm":true}`)))
 	if err != nil {
 		return err
 	}
@@ -58,12 +48,12 @@ func (s *System) Shutdown(ctx context.Context, action string) error {
 		return fmt.Errorf("the system refused: %d %s", res.StatusCode, strings.TrimSpace(string(body)))
 	}
 	if s.Log != nil {
-		s.Log("the system accepted: systemctl start %s", unit)
+		s.Log("the system accepted the power-off")
 	}
 	return nil
 }
 
-// Right is what the addon's token may do: whether it holds system:write (the shutdown right).
+// Right is what the addon's token may do: whether it holds power:halt (the shutdown right).
 type Right struct {
 	// Checked is false until the system answered once.
 	Checked bool     `json:"checked"`
@@ -103,7 +93,7 @@ func (s *System) CheckRight(ctx context.Context) Right {
 		r.Scopes = []string{}
 	}
 	for _, sc := range st.Scopes {
-		if sc == "system:write" || sc == "*" {
+		if sc == "power:halt" || sc == "power" || sc == "*" {
 			r.OK = true
 		}
 	}

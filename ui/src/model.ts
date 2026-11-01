@@ -32,7 +32,6 @@ export interface UPS {
 
 export interface Settings {
     enabled: boolean;
-    action: 'poweroff' | 'reboot';
     dry_run: boolean;
     grace_s: number;
     poll_s: number;
@@ -245,6 +244,8 @@ export function eventText(e: Event, t: (k: string, p?: Record<string, string | n
             return e.test ? t('Test: {action} ordered', {action}) : t('{action} ordered ({reasons})', {action, reasons});
         case 'dry_run':
             return e.test ? t('Test (dry run): would {action}', {action}) : t('Dry run: would {action} ({reasons})', {action, reasons});
+        case 'reboot_removed':
+            return t('The configured action was a reboot, which this version no longer has: the shutdown now powers the system off.');
         case 'error':
             return t('{action} failed: {message}', {action, message: e.message ?? ''});
         default:

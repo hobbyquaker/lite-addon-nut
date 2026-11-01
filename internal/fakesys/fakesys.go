@@ -1,6 +1,6 @@
 // Package fakesys is the slice of openccu-lite's API the addon talks to, for the tests and the
 // page's development: the meta version (the platform probe), the auth state of the token (its
-// scopes), and the service control the shutdown goes through, recorded. Plus a fake upsd whose
+// scopes), and the power-off route, recorded. Plus a fake upsd whose
 // variables the tests and the e2e specs set over /dev/ups.
 package fakesys
 
@@ -20,9 +20,9 @@ type Server struct {
 	Token string
 	// Scopes is what /api/auth/v1/state answers for the token.
 	Scopes []string
-	// Calls records "<unit> <action>" of every service control.
+	// Calls records "halt" for every accepted power-off.
 	Calls []string
-	// Refuse makes the service control answer 403 (a token without the right).
+	// Refuse makes the power-off answer 403 (a token without the right).
 	Refuse bool
 	// UPSD is the fake upsd the dev routes drive; nil without one.
 	UPSD *nut.FakeUPSD
@@ -53,22 +53,29 @@ func (s *Server) Handler() http.Handler {
 		}
 		writeJSON(w, 200, map[string]any{"authenticated": true, "sid": "", "user": "token:addon:nut", "scopes": s.Scopes, "level": "read", "role": "user"})
 	})
-	mux.HandleFunc("POST /api/system/v1/services/{id}/{action}", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /api/system/v1/halt", func(w http.ResponseWriter, r *http.Request) {
 		if !s.authed(r) {
 			writeJSON(w, 401, map[string]any{"error": "unauthenticated"})
+			return
+		}
+		var body struct {
+			Confirm bool `json:"confirm"`
+		}
+		if json.NewDecoder(r.Body).Decode(&body) != nil || !body.Confirm {
+			writeJSON(w, 400, map[string]any{"error": "bad-request", "message": "confirm must be true"})
 			return
 		}
 		s.mu.Lock()
 		refuse := s.Refuse
 		if !refuse {
-			s.Calls = append(s.Calls, r.PathValue("id")+" "+r.PathValue("action"))
+			s.Calls = append(s.Calls, "halt")
 		}
 		s.mu.Unlock()
 		if refuse {
-			writeJSON(w, 403, map[string]any{"error": "forbidden", "message": "scope system:write needed"})
+			writeJSON(w, 403, map[string]any{"error": "forbidden", "message": "scope power:halt needed"})
 			return
 		}
-		writeJSON(w, 200, map[string]any{"ok": true, "output": ""})
+		writeJSON(w, 200, map[string]any{"ok": true, "halting": true})
 	})
 	mux.HandleFunc("GET /dev/calls", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, s.CallList())

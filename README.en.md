@@ -2,6 +2,10 @@
 
 *[Deutsch](README.md)*
 
+> **Needs openccu-lite 1.1.0-beta.1 or later.** On an older system, the system refuses the install and the update. If the
+> action was set to reboot: from 0.2.0 the addon powers the system off instead, and the event log says so once. A Raspberry
+> Pi then starts again only when its power is cycled.
+
 A **client for Network UPS Tools (NUT)** for [openccu-lite](https://github.com/hobbyquaker/openccu-lite): it connects
 to the `upsd` that has your UPS – a NAS, a Proxmox host, a Raspberry Pi at the UPS's USB cable –, shows the UPS's
 state and **shuts the system down cleanly** before the UPS runs out of energy. That protects the SD card, the file
@@ -32,8 +36,8 @@ system and the device files of the radio interfaces.
 - **Grace period** (default 30 s): a countdown runs between the rule and the shutdown, shown on the page. When mains
   returns in time it is **cancelled**. A button cancels it by hand too; the UPS that caused it is then ignored until it
   is back on mains.
-- **Action:** power off (the default; the UPS cuts the load later, and when mains returns the system boots with the
-  power) or reboot.
+- **The shutdown:** the system powers off; the UPS cuts the load later, and when mains returns the system boots with the
+  power. The addon no longer offers a reboot: its scope allows powering off only.
 - **Dry run:** logs and shows what would happen, never shuts down. A **Test** button for the dry run and one that
   tests the whole path for real.
 - **Several UPS:** any one may trigger, or – for a system fed by two UPS – only when every one is critical.
@@ -61,10 +65,8 @@ only at an action.
 ## How it shuts down
 
 The addon shuts the system down through the system's own API, not with `shutdown` or `systemctl` from its own
-process: `POST /api/system/v1/services/poweroff.target/start` (or `reboot.target`), which the system runs as
-`systemctl start poweroff.target`. For that the manifest declares the scope **`system:write`** – the only one the addon
-has. The scope `power`, which the proper routes `POST /halt` and `POST /reboot` need, is never granted to an addon
-token; the service control of `system:write` is the narrowest path that works today. The status page shows under
+process: `POST /api/system/v1/halt`. For that the manifest declares the scope **`power:halt`** – the only one the addon
+has. It allows exactly this route and nothing else, not even a reboot. The status page shows under
 *Shutdown right* whether the token holds it; the system's Addons page shows the scope as well.
 
 The addon runs as its own user without privileges, opens no port and connects only to the servers you enter. The

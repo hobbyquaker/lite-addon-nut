@@ -65,8 +65,6 @@ type UPS struct {
 type Settings struct {
 	// Enabled switches the watch on; off, the page shows the UPS and nothing is ever shut down.
 	Enabled bool `json:"enabled"`
-	// Action is "poweroff" (default) or "reboot".
-	Action string `json:"action"`
 	// DryRun logs and shows what would happen and never calls the system.
 	DryRun bool `json:"dry_run"`
 	// GraceS is the countdown between the condition and the shutdown; cancelled when mains
@@ -89,15 +87,13 @@ type Config struct {
 
 // Defaults for the settings and a new UPS's rules.
 var (
-	DefaultSettings = Settings{Enabled: true, Action: "poweroff", DryRun: false, GraceS: 30, PollS: 5, DeadS: 60}
+	DefaultSettings = Settings{Enabled: true, DryRun: false, GraceS: 30, PollS: 5, DeadS: 60}
 	DefaultRules    = Rules{LowBattery: true, FSD: true, ChargeBelow: 0, RuntimeBelow: 0, OnBatteryLonger: 0, CommLost: true}
 )
 
-// Actions the shutdown may take.
-const (
-	ActionPoweroff = "poweroff"
-	ActionReboot   = "reboot"
-)
+// ActionPoweroff is the only thing the shutdown does; the state and the events still name it, and
+// events of earlier versions may name "reboot".
+const ActionPoweroff = "poweroff"
 
 // ErrNotFound is answered for an unknown id.
 var ErrNotFound = errors.New("not found")
@@ -116,10 +112,11 @@ var upsNameRe = regexp.MustCompile(`^[A-Za-z0-9_.-]{1,64}$`)
 
 // Store holds the configuration and the file.
 type Store struct {
-	mu       sync.RWMutex
-	path     string
-	c        Config
-	OnChange func()
+	rebootRemoved bool
+	mu            sync.RWMutex
+	path          string
+	c             Config
+	OnChange      func()
 }
 
 // Open reads nut.json from dir (made when missing).
@@ -144,8 +141,24 @@ func Open(dir string) (*Store, error) {
 		return nil, fmt.Errorf("%s: %w", s.path, err)
 	}
 	s.c = c
+	// a file of 0.1.x names its action: the key goes for good, and a reboot is reported once
+	var old struct {
+		Settings struct {
+			Action *string `json:"action"`
+		} `json:"settings"`
+	}
+	if json.Unmarshal(b, &old) == nil && old.Settings.Action != nil {
+		s.rebootRemoved = *old.Settings.Action == "reboot"
+		if err := write(s.path, c); err != nil {
+			return nil, fmt.Errorf("%s: %w", s.path, err)
+		}
+	}
 	return s, nil
 }
+
+// RebootRemoved says this start migrated a configuration whose action was a reboot: from now on
+// the shutdown powers the system off, and only this start can tell the user so.
+func (s *Store) RebootRemoved() bool { return s.rebootRemoved }
 
 // Get answers a copy of the configuration, passwords included (for the monitor).
 func (s *Store) Get() Config {
@@ -347,9 +360,6 @@ func (c *Config) normalize() {
 			c.UPS[i].Label = c.UPS[i].Name
 		}
 	}
-	if c.Settings.Action == "" {
-		c.Settings.Action = ActionPoweroff
-	}
 	if c.Settings.PollS == 0 {
 		c.Settings.PollS = DefaultSettings.PollS
 	}
@@ -412,9 +422,6 @@ func (c *Config) validate() error {
 		}
 	}
 	st := c.Settings
-	if st.Action != ActionPoweroff && st.Action != ActionReboot {
-		return invalid("action must be poweroff or reboot")
-	}
 	if st.GraceS < 0 || st.GraceS > 3600 {
 		return invalid("the grace period is 0 to 3600 s")
 	}

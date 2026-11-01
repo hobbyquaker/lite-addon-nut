@@ -20,10 +20,10 @@ type fakeExec struct {
 	onCall func()
 }
 
-func (f *fakeExec) Shutdown(_ context.Context, action string) error {
+func (f *fakeExec) Shutdown(_ context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.calls = append(f.calls, action)
+	f.calls = append(f.calls, config.ActionPoweroff)
 	if f.onCall != nil {
 		f.onCall()
 	}
@@ -110,7 +110,7 @@ func (w *world) kinds() []string {
 }
 
 func settings(grace int) config.Settings {
-	return config.Settings{Enabled: true, Action: config.ActionPoweroff, GraceS: grace, PollS: 1, DeadS: 10}
+	return config.Settings{Enabled: true, GraceS: grace, PollS: 1, DeadS: 10}
 }
 
 func TestOnlineNothingHappens(t *testing.T) {
@@ -431,13 +431,13 @@ func TestLogFile(t *testing.T) {
 	}
 }
 
-// The system stops the daemon while systemctl start poweroff.target is still answering: the cut
+// The system stops the daemon while POST /halt is still answering: the cut
 // request is the shutdown, not an error, and the order was logged before the call.
 func TestTerminatedDuringOrderIsTheShutdown(t *testing.T) {
 	w := setup(t, settings(0), config.DefaultRules)
 	terminating := false
 	w.m.o.Terminating = func() bool { return terminating }
-	w.exec.fail = errors.New(`Post "http://127.0.0.1/api/system/v1/services/poweroff.target/start": terminated signal received`)
+	w.exec.fail = errors.New(`Post "http://127.0.0.1/api/system/v1/halt": terminated signal received`)
 	w.exec.onCall = func() { terminating = true }
 	w.poll()
 	w.ups.Set("eaton", "ups.status", "OB LB")

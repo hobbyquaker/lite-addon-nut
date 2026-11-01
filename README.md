@@ -2,6 +2,10 @@
 
 *[English](README.en.md)*
 
+> **Braucht openccu-lite 1.1.0-beta.1 oder neuer.** Auf einem älteren System verweigert das System die Installation und das
+> Update. War als Aktion ein Neustart eingestellt: ab 0.2.0 fährt das Addon das System stattdessen herunter, und das
+> Ereignisprotokoll sagt es einmal. Ein Raspberry Pi startet danach erst wieder, wenn der Strom aus- und eingeschaltet wird.
+
 Ein **Client für Network UPS Tools (NUT)** für [openccu-lite](https://github.com/hobbyquaker/openccu-lite): Er
 verbindet sich mit dem `upsd`, an dem Ihre USV hängt – ein NAS, ein Proxmox-Host, ein Raspberry Pi am USB-Kabel der
 USV –, zeigt den Zustand der USV und **fährt das System sauber herunter**, bevor der USV die Energie ausgeht. Das
@@ -32,8 +36,8 @@ schützt die SD-Karte, das Dateisystem und die Gerätedateien der Funkschnittste
 - **Karenzzeit** (Standard 30 s): Zwischen Regel und Herunterfahren läuft ein Countdown, den die Seite anzeigt. Kommt
   der Netzstrom rechtzeitig zurück, wird er **abgebrochen**. Ein Knopf bricht ihn auch von Hand ab; die auslösende USV
   wird dann ignoriert, bis sie wieder am Netz ist.
-- **Aktion:** Herunterfahren (Standard; die USV schaltet die Last später ab, und nach Netzrückkehr startet das System
-  mit der Stromversorgung) oder Neustart.
+- **Herunterfahren:** das System schaltet sich aus; die USV nimmt später die Last weg, und bei Netzrückkehr startet das
+  System mit dem Strom. Einen Neustart bietet das Addon nicht mehr an: sein Recht erlaubt nur das Ausschalten.
 - **Probelauf:** protokolliert und zeigt, was passieren würde, fährt aber nie herunter. Ein **Test**-Knopf für den
   Probelauf und einer, der den ganzen Weg in echt prüft.
 - **Mehrere USV:** jede kann auslösen, oder – für ein System an zwei USV – erst, wenn jede kritisch ist.
@@ -61,10 +65,8 @@ beim Lesen nicht auf, denn upsd prüft es erst bei einer Aktion.
 ## Wie es herunterfährt
 
 Das Addon fährt das System über dessen eigene API herunter, nicht mit `shutdown` oder `systemctl` aus dem eigenen
-Prozess: `POST /api/system/v1/services/poweroff.target/start` (bzw. `reboot.target`), was das System als
-`systemctl start poweroff.target` ausführt. Dafür deklariert das Manifest das Recht **`system:write`** – das einzige, das
-das Addon hat. Das Recht `power`, das die eigentlichen Routen `POST /halt` und `POST /reboot` verlangen, erhält ein
-Addon-Token grundsätzlich nicht; die Dienststeuerung von `system:write` ist der engste Weg, der heute funktioniert.
+Prozess: `POST /api/system/v1/halt`. Dafür deklariert das Manifest das Recht **`power:halt`** – das einzige, das das Addon
+hat. Es erlaubt genau diese Route und sonst nichts, auch keinen Neustart.
 Die Statusseite zeigt unter *Recht zum Herunterfahren*, ob das Token es hat; die Addons-Seite des Systems zeigt das
 Recht ebenfalls.
 
